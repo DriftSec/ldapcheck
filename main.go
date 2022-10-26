@@ -28,6 +28,8 @@ var (
 	pass      string
 	hash      string
 	domain    string
+	relayFile string
+	relayLst  []string
 )
 
 func main() {
@@ -35,6 +37,7 @@ func main() {
 	flag.StringVar(&dom_user, "u", "", "username, formats: user@domian or domain\\user")
 	flag.StringVar(&pass, "p", "", "user password")
 	flag.StringVar(&hash, "H", "", "user NTLM hash")
+	flag.StringVar(&relayFile, "relay-list", "", "generate a relay list for use with ntlmrelayx.py")
 	flag.Parse()
 
 	if targetArg == "" {
@@ -102,6 +105,7 @@ func main() {
 				fmt.Println("LDAP: Auth Failed,  valid creds are required to check signing!")
 			} else {
 				fmt.Println(colorGreen + "	signing is NOT enforced, we can relay to ldap://" + target + colorReset)
+				relayLst = append(relayLst, "ldap://"+target)
 
 			}
 		}
@@ -119,6 +123,13 @@ func main() {
 			fmt.Println(colorRed + "	channel binding is enforced on ldaps://" + target + colorReset)
 		} else {
 			fmt.Println(colorGreen + "	channel binding is NOT enforced, we can relay to ldaps://" + target + colorReset)
+			relayLst = append(relayLst, "ldaps://"+target)
+		}
+	}
+	if len(relayLst) > 0 && relayFile != "" {
+		err := writeLines(relayLst, relayFile)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 }
@@ -138,4 +149,19 @@ func readLines(path string) ([]string, error) {
 		lines = append(lines, scanner.Text())
 	}
 	return lines, scanner.Err()
+}
+
+// writeLines writes the lines to the given file.
+func writeLines(lines []string, path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	w := bufio.NewWriter(file)
+	for _, line := range lines {
+		fmt.Fprintln(w, line)
+	}
+	return w.Flush()
 }
