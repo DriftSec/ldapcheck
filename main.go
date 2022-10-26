@@ -34,7 +34,7 @@ var (
 
 func main() {
 	flag.StringVar(&targetArg, "t", "", "target address or file containing targets")
-	flag.StringVar(&dom_user, "u", "", "username, formats: user@domian or domain\\user")
+	flag.StringVar(&dom_user, "u", "", "username, formats: user@domain or domain\\user")
 	flag.StringVar(&pass, "p", "", "user password")
 	flag.StringVar(&hash, "H", "", "user NTLM hash")
 	flag.StringVar(&relayFile, "relay-list", "", "generate a relay list for use with ntlmrelayx.py")
