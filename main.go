@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 
@@ -28,28 +29,46 @@ var (
 	pass      string
 	hash      string
 	domain    string
+	domQuery  string
 	relayFile string
 	relayLst  []string
 )
 
 func main() {
 	flag.StringVar(&targetArg, "t", "", "target address or file containing targets")
+	flag.StringVar(&domQuery, "T", "", "Query this domain for LDAP targets")
 	flag.StringVar(&dom_user, "u", "", "username, formats: user@domain or domain\\user")
 	flag.StringVar(&pass, "p", "", "user password")
 	flag.StringVar(&hash, "H", "", "user NTLM hash")
-	flag.StringVar(&relayFile, "relay-list", "", "generate a relay list for use with ntlmrelayx.py")
+	flag.StringVar(&relayFile, "o", "", "generate a relay list for use with ntlmrelayx.py")
 	flag.Parse()
 
-	if targetArg == "" {
-		log.Fatal("[ERROR] target IP (-t) is required!")
+	if targetArg == "" && domQuery == "" {
+		log.Fatal("[ERROR] either target IP (-t) or target domain (-T) is required!")
 	}
 
-	if _, err := os.Stat(targetArg); errors.Is(err, os.ErrNotExist) {
-		targets = append(targets, targetArg)
-	} else {
-		targets, err = readLines(targetArg)
+	if domQuery != "" {
+		// query and append to targets list
+		_, addr, err := net.LookupSRV("", "", "_ldap._tcp.dc._msdcs."+domQuery)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("[ERROR] Failed to query _ldap._tcp.dc._msdcs."+domQuery+":", err)
+		}
+		for _, a := range addr {
+			targets = append(targets, strings.TrimRight(a.Target, "."))
+		}
+
+		// _ldap._tcp.dc._msdcs.
+	}
+
+	if targetArg != "" {
+		if _, err := os.Stat(targetArg); errors.Is(err, os.ErrNotExist) {
+			targets = append(targets, targetArg)
+		} else {
+			tmp, err := readLines(targetArg)
+			if err != nil {
+				log.Fatal(err)
+			}
+			targets = append(targets, tmp...)
 		}
 	}
 
@@ -77,6 +96,9 @@ func main() {
 		}
 	}
 
+	if len(targets) < 1 {
+		log.Fatal("[ERROR] No targets!")
+	}
 	for _, target := range targets {
 
 		fmt.Println("[!] Checking " + target)
